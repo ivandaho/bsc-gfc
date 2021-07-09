@@ -1,12 +1,29 @@
 import axios from "axios";
 import moment from "moment";
 import prompt from "prompt";
+import { child } from "winston";
 import { calcGasLastNTrans } from "./transactions";
 import { getBlockNumber } from "./util";
 import logger from "./winston";
 require("dotenv").config();
 
-const { API_KEY, DATE_FORMAT, TIME_FORMAT, BSC_ADDR } = process.env;
+const {
+  API_KEY,
+  DATE_FORMAT = moment.HTML5_FMT.DATE,
+  TIME_FORMAT = moment.HTML5_FMT.TIME_SECONDS,
+  BSC_ADDR,
+} = process.env;
+
+if (!API_KEY) {
+  logger.error("API_KEY is not found in .env");
+  process.exit(0)
+}
+
+if (!BSC_ADDR) {
+  logger.error("BSC_ADDR is not found in .env");
+  process.exit(0)
+}
+
 const dtFormat = `${DATE_FORMAT} ${TIME_FORMAT}`;
 const [, , fastStart, transCount = "100", bnbPrice = "300"] = process.argv;
 
@@ -98,7 +115,7 @@ async function getTransactions(startBlock, endBlock, bscAddr) {
       result = data.result;
     } else throw data;
   } catch (err) {
-    logger.error(err);
+    logger.error(JSON.stringify(err));
   }
 
   return result;
@@ -135,10 +152,9 @@ async function start(
       );
       const res = await retrieveBlockNumber(unixStart, unixEnd);
       const trx = await getTransactions(res[0], res[1], bscAddr);
-      logger.info(
-        `BNB Price: ${price}, Trx Count: ${count}`
-      );
-      calculate(trx, price, count);
+      logger.info(`BNB Price: ${price}, Trx Count: ${count}`);
+      if (trx) calculate(trx, price, count);
+      else logger.info("No transactions found");
     } else {
       logger.error("Please set your binance address in .env file");
     }
